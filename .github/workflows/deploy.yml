@@ -1,0 +1,82 @@
+# GitHub Actions 自动化部署到阿里云ECS
+# 免费方案：GitHub Actions + 阿里云ECS
+
+name: Deploy Backend
+
+on:
+  push:
+    branches: [ master ]
+    paths:
+      - 'backend/**'
+  workflow_dispatch:
+
+env:
+  REGISTRY: docker.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. 下载代码
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 2. 设置Docker Buildx
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # 3. 登录Docker Hub
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_TOKEN }}
+
+      # 4. 构建镜像
+      - name: Build Docker image
+        run: |
+          docker build -t ${{ env.REGISTRY }}/${{ secrets.DOCKER_USERNAME }}/enterprise-assistant-backend:${{ github.sha }} ./backend
+          docker build -t ${{ env.REGISTRY }}/${{ secrets.DOCKER_USERNAME }}/enterprise-assistant-backend:latest ./backend
+
+      # 5. 推送镜像
+      - name: Push image to registry
+        run: |
+          docker push ${{ env.REGISTRY }}/${{ secrets.DOCKER_USERNAME }}/enterprise-assistant-backend:${{ github.sha }}
+          docker push ${{ env.REGISTRY }}/${{ secrets.DOCKER_USERNAME }}/enterprise-assistant-backend:latest
+
+      # 6. 部署到阿里云ECS
+      - name: Deploy to Alibaba Cloud ECS
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.ALIYUN_ECS_HOST }}
+          port: ${{ secrets.ALIYUN_ECS_PORT }}
+          username: ${{ secrets.ALIYUN_ECS_USER }}
+          password: ${{ secrets.ALIYUN_ECS_PASSWORD }}
+          script: |
+            docker stop enterprise-assistant-backend || true
+            docker rm enterprise-assistant-backend || true
+            docker pull ${{ env.REGISTRY }}/${{ secrets.DOCKER_USERNAME }}/enterprise-assistant-backend:${{ github.sha }}
+            docker run -d \
+              --name enterprise-assistant-backend \
+              -e DB_HOST=${{ secrets.DB_HOST }} \
+              -e DB_PORT=${{ secrets.DB_PORT }} \
+              -e DB_USER=${{ secrets.DB_USER }} \
+              -e DB_PASSWORD=${{ secrets.DB_PASSWORD }} \
+              -e DB_NAME=${{ secrets.DB_NAME }} \
+              -e SECRET_KEY=${{ secrets.SECRET_KEY }} \
+              -e JWT_SECRET=${{ secrets.JWT_SECRET }} \
+              -p 5000:5000 \
+              --restart unless-stopped \
+              ${{ env.REGISTRY }}/${{ secrets.DOCKER_USERNAME }}/enterprise-assistant-backend:${{ github.sha }}
+
+      # 7. 健康检查
+      - name: Verify deployment
+        run: |
+          sleep 10
+          curl -f http://${{ secrets.ALIYUN_ECS_HOST }}:5000/api/health || {
+            echo "Health check failed"
+            exit 1
+          }
+          echo "Deployment successful!"
