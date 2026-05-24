@@ -46,21 +46,14 @@ jobs:
           docker push ${{ env.REGISTRY }}/${{ secrets.DOCKER_USERNAME }}/enterprise-assistant-backend:${{ github.sha }}
           docker push ${{ env.REGISTRY }}/${{ secrets.DOCKER_USERNAME }}/enterprise-assistant-backend:latest
 
-      # 6. 准备 SSH 密钥
-      - name: Prepare SSH key
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-
-      # 7. 部署到阿里云ECS
+      # 6. 部署到阿里云ECS
       - name: Deploy to Alibaba Cloud ECS
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.ALIYUN_ECS_HOST }}
           port: ${{ secrets.ALIYUN_ECS_PORT }}
           username: ${{ secrets.ALIYUN_ECS_USER }}
-          key_path: /root/.ssh/id_rsa
+          password: ${{ secrets.ALIYUN_ECS_PASSWORD }}
           script: |
             docker stop enterprise-assistant-backend || true
             docker rm enterprise-assistant-backend || true
