@@ -50,9 +50,8 @@ jobs:
       - name: Prepare SSH key
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" | base64 -d > ~/.ssh/id_rsa
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ls -la ~/.ssh/id_rsa
 
       # 7. 部署到阿里云ECS
       - name: Deploy to Alibaba Cloud ECS
@@ -61,9 +60,7 @@ jobs:
           host: ${{ secrets.ALIYUN_ECS_HOST }}
           port: ${{ secrets.ALIYUN_ECS_PORT }}
           username: ${{ secrets.ALIYUN_ECS_USER }}
-          key: |
-            ${{ secrets.SSH_PRIVATE_KEY }}
-          skip_host_key_checking: true
+          key_path: /root/.ssh/id_rsa
           script: |
             docker stop enterprise-assistant-backend || true
             docker rm enterprise-assistant-backend || true
