@@ -14,7 +14,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18'
-          working-directory: react-native
+
+      - name: Install dependencies
+        run: |
+          cd react-native
+          npm install
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -22,15 +26,12 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Install dependencies
-        run: npm install
-
       - name: Setup Android SDK
         uses: android-actions/setup-android@v2
 
       - name: Build APK
         run: |
-          cd android
+          cd react-native/android
           chmod +x gradlew
           ./gradlew assembleRelease
 
@@ -38,4 +39,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: app-release
-          path: android/app/build/outputs/apk/release/app-release.apk
+          path: react-native/android/app/build/outputs/apk/release/app-release.apk
